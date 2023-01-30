@@ -14,7 +14,7 @@ void GenerateRandomMatrix(size_t height, size_t width, float* output)
     }
 }
 
-void TestCUDA(size_t A)
+void TestCUDA(size_t A, unsigned t)
 {
     float * matrix = (float*)malloc(A * A * sizeof(float));
     float * vector = (float*)malloc(A * sizeof(float));
@@ -23,15 +23,15 @@ void TestCUDA(size_t A)
     GenerateRandomMatrix(A, A, matrix);
     GenerateRandomMatrix(A, 1, vector);
 
-    float elapsedTimeMs = SolveSODE_CUDA(matrix, vector, result, A);
-    printf("CUDA elapsed time: %.2f ms", elapsedTimeMs);
+    float elapsedTimeMs = SolveSODE_CUDA(matrix, vector, result, A, t);
+    printf("CUDA elapsed time: %.2f ms\n", elapsedTimeMs);
 
     free(matrix);
     free(vector);
     free(result);
 }
 
-void TestCUBLAS(size_t A)
+void TestCUBLAS(size_t A, unsigned t)
 {
 
     float * matrix = (float*)malloc(A * A * sizeof(float));
@@ -41,8 +41,8 @@ void TestCUBLAS(size_t A)
     GenerateRandomMatrix(A, A, matrix);
     GenerateRandomMatrix(A, 1, vector);
 
-    float elapsedTimeMs = SolveSODE_CUBLAS(matrix, vector, result, A);
-    printf("CUBLAS elapsed time:: %.2f ms", elapsedTimeMs);
+    float elapsedTimeMs = SolveSODE_CUBLAS(matrix, vector, result, A, t);
+    printf("CUBLAS elapsed time: %.2f ms\n", elapsedTimeMs);
 
     free(matrix);
     free(vector);

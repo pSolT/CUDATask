@@ -2,18 +2,33 @@
 
 #define BLOCK_SIZE 1024
 
-// Use dynamic shared memory
-__global__ void solverKernel(float* A, float* x, float* result, size_t n)
-{
-    // Use dynamically allocated shared memory
-    int tId = blockIdx.y * gridDim.x +  blockIdx.x * blockDim.x + threadIdx.x; 
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-    float cValue = A[tId] * x[col];
-    atomicAdd(&result[blockIdx.y], cValue);
+__global__ void solverKernel(float* A, float* x, float* result, size_t n, unsigned t, float h)
+{
+    __shared__ float ATile[BLOCK_SIZE];
+    __shared__ float xTile[BLOCK_SIZE];
+    float cValue = 1.0f;
+
+    int aIdx = n * blockIdx.y + blockIdx.x * blockDim.x + threadIdx.x;
+    int xIdx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Be careful not to go out of bounds
+    if(xIdx < n)
+    {
+        // Copy row of A and x into shared memory in order to minimize the reads
+        ATile[threadIdx.x] = A[aIdx];
+        xTile[threadIdx.x] = x[xIdx];
+        __syncthreads();
+
+        for(int i=0; i<t; i++)
+        {
+            cValue += h * (ATile[aIdx] * xTile[xIdx]);
+        }
+        atomicAdd(&result[blockIdx.y], cValue);
+    }
 }
 
-float SolveSODE_CUDA(float* A, float* x, float* result, size_t N)
+float SolveSODE_CUDA(float* A, float* x, float* result, size_t N, unsigned t)
 {
     float *dA, *dx, *dResult;
     // Allocate the memory and memset result to 0
@@ -27,14 +42,24 @@ float SolveSODE_CUDA(float* A, float* x, float* result, size_t N)
     checkCudaErrors(cudaMemset(dResult, 0, N*sizeof(float)));
 
     dim3 blockSize(BLOCK_SIZE, 1, 1);
-    dim3 gridSize(N/BLOCK_SIZE, N, 1);
+    int numBlocksX = ceil(float(N)/BLOCK_SIZE);
+    dim3 gridSize(numBlocksX, N, 1);
+
+    printf("Grid : {%d, %d, %d} blocks. Blocks : {%d, %d, %d} threads.\n",
+            gridSize.x, gridSize.y, gridSize.z, blockSize.x, blockSize.y, blockSize.z);
 
     cudaEvent_t start, stop;
     checkCudaErrors(cudaEventCreate(&start));
     checkCudaErrors(cudaEventCreate(&stop));
 
     checkCudaErrors(cudaEventRecord(start, NULL));
-    solverKernel<<<blockSize, gridSize>>>(dA, dx, dResult, N);  
+
+
+    float h = 0.01;
+    solverKernel<<<blockSize, gridSize>>>(dA, dx, dResult, N, t, h);  
+
+    checkCudaErrors( cudaPeekAtLastError() );
+    checkCudaErrors( cudaDeviceSynchronize() );
     checkCudaErrors(cudaEventRecord(stop, NULL));
     
     checkCudaErrors(cudaEventSynchronize(stop));
@@ -49,7 +74,7 @@ float SolveSODE_CUDA(float* A, float* x, float* result, size_t N)
     return elapsedTimeMs;
 }
 
-float SolveSODE_CUBLAS(float* A, float* x, float* result, size_t N)
+float SolveSODE_CUBLAS(float* A, float* x, float* result, size_t N, unsigned t)
 {
     float *dA, *dx, *dResult;
     // Allocate the memory and memset result to 0
