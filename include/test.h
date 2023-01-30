@@ -1,3 +1,6 @@
+#ifndef TEST_H
+#define TEST_H
+
 #include <iostream>
 #include <random>
 #include "solver.cuh"
@@ -45,3 +48,5 @@ void TestCUBLAS(size_t A)
     free(vector);
     free(result);
 }
+
+#endif

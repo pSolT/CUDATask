@@ -1,3 +1,6 @@
+#ifndef HELPER_FUNCTIONS_H
+#define HELPER_FUNCTIONS_H
+
 #include <cstdio>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -28,3 +31,5 @@ void check(T result, char const *const func, const char *const file,
             exit(1); \
         } \
     } while (0)
+
+#endif
